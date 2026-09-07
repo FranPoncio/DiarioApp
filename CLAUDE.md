@@ -23,7 +23,7 @@ prolijo que quede el código.
 ```
 src/App.jsx              el estado global y el ruteo, que es un useState
 src/components/tabs/     las cuatro pantallas: Hoy, Planning, Gastos, Resumen
-src/components/          el resto de la UI
+src/components/          el resto de la UI (Invitar.jsx: alta de invitaciones)
 src/lib/gastos/          división, saldos y conversión de moneda
 src/lib/supabase/        cliente, auth y realtime
 src/lib/tareas.js        siembra las 34 tareas del plan desde la fecha de llegada
@@ -67,6 +67,12 @@ inventados — no hace falta que sean reales, solo que no estén vacíos.
   cliente (migración 0010). La app lo recalcula igual para pintar la fila sin
   esperar a la red, pero el que vale es el del servidor.
 - El login es por magic link. No hay contraseñas.
+- **Tener cuenta y estar en el grupo son cosas distintas.** El magic link crea
+  el usuario solo, pero la RLS filtra por `miembros`. Se entra al grupo por una
+  invitación: `traerContexto` llama a `aceptar_invitacion()` cuando el usuario
+  no tiene grupo, y esa función (security definer, migración 0011) le crea la
+  fila en `miembros` si hay una invitación pendiente para su mail. La app no
+  manda mails: la invitación es el permiso esperando.
 
 ## Convenciones
 

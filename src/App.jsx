@@ -55,7 +55,9 @@ export default function App() {
     })();
   }, [sesion]);
 
-  const recargarRubros = async () => {
+  // Recarga todo el contexto, no sólo los rubros: también lo usa Invitar,
+  // porque sumar un miembro cambia entre cuántos se reparten los gastos.
+  const recargarContexto = async () => {
     try {
       setCtx(await traerContexto());
     } catch (e) {
@@ -70,7 +72,10 @@ export default function App() {
     return (
       <div className="cargando">
         Tu usuario todavía no está en ningún grupo.<br />
-        <span className="chico">Agregalo a la tabla <code>miembros</code> desde Supabase.</span>
+        <span className="chico">
+          Pedile a alguien del grupo que te invite desde Resumen → Invitar, con
+          este mismo mail.
+        </span>
       </div>
     );
   }
@@ -82,7 +87,7 @@ export default function App() {
       {tab === "hoy" && <Hoy contexto={ctx} onIrA={cambiarTab} onCargarGasto={irACargarGasto} />}
       {tab === "plan" && <Planning contexto={ctx} />}
       {tab === "gastos" && <Gastos contexto={ctx} autoAbrir={pedirNuevoGasto} />}
-      {tab === "resumen" && <Resumen contexto={ctx} onRecargarRubros={recargarRubros} />}
+      {tab === "resumen" && <Resumen contexto={ctx} onRecargarContexto={recargarContexto} />}
       <TabBar tab={tab} onCambiar={cambiarTab} />
     </div>
   );

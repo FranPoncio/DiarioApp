@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcularMontos, tasaDe, TASAS, deudasDe, textoSaldo } from "./gastos";
+import { calcularMontos, tasaDe, TASAS, deudasDe, textoSaldo, emailValido } from "./gastos";
 import { rangoMes, toISO, hoyISO, parseISO, sumarDias } from "./formato";
 
 describe("calcularMontos", () => {
@@ -192,5 +192,21 @@ describe("textoSaldo", () => {
 
   it("sin deudas está a mano aunque haya gente en el grupo", () => {
     expect(textoSaldo([], true)).toMatchObject({ tono: "cero", monto: null });
+  });
+});
+
+describe("emailValido", () => {
+  it("acepta un mail normal", () => {
+    expect(emailValido("alguien@mail.com")).toBe(true);
+  });
+
+  it("ignora los espacios de los costados, que es como se pega un mail", () => {
+    expect(emailValido("  alguien@mail.com  ")).toBe(true);
+  });
+
+  it("rechaza lo que no llega a ser un mail", () => {
+    for (const malo of ["", "alguien", "alguien@", "@mail.com", "alguien@mail", "a b@mail.com"]) {
+      expect(emailValido(malo), malo).toBe(false);
+    }
   });
 });

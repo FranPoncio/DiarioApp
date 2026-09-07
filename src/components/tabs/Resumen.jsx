@@ -4,10 +4,12 @@ import { traerGastos, traerSaldosPorPar, rubroDe, deudasDe, textoSaldo } from ".
 import { plata, MESES_LARGO, rangoMes } from "../../lib/formato";
 import { gastosACSV, bajarCSV } from "../../lib/csv";
 import EditarRubros from "../EditarRubros";
+import Invitar from "../Invitar";
 
-export default function Resumen({ contexto, onRecargarRubros }) {
+export default function Resumen({ contexto, onRecargarContexto }) {
   const { grupo_id, miembros, rubros } = contexto;
   const [editandoRubros, setEditandoRubros] = useState(false);
+  const [invitando, setInvitando] = useState(false);
   const hoy = new Date();
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth());
@@ -186,13 +188,20 @@ export default function Resumen({ contexto, onRecargarRubros }) {
         <span>
           <button className="link" onClick={() => setEditandoRubros(true)}>Categorías</button>
           {" · "}
+          <button className="link" onClick={() => setInvitando(true)}>Invitar</button>
+          {" · "}
           <button className="link" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
         </span>
       </footer>
 
       {editandoRubros && (
         <EditarRubros grupo_id={grupo_id} rubros={rubros}
-          onCambio={onRecargarRubros} onCerrar={() => setEditandoRubros(false)} />
+          onCambio={onRecargarContexto} onCerrar={() => setEditandoRubros(false)} />
+      )}
+
+      {invitando && (
+        <Invitar grupo_id={grupo_id} miembros={miembros}
+          onCambio={onRecargarContexto} onCerrar={() => setInvitando(false)} />
       )}
     </div>
   );

@@ -54,6 +54,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--marca);outline-
 .deudas-mini li{display:flex;justify-content:space-between;gap:10px;color:var(--t2);}
 .deudas-mini .favor{color:var(--verde);font-weight:600;}
 .deudas-mini .debo{color:var(--marca);font-weight:600;}
+/* Invitar: misma hoja que Categorías. */
+.invitar-form{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.invitar-form label{font-size:12px;color:var(--t2);font-weight:600;}
+.invitar-form input{padding:10px;border:1px solid var(--linea);border-radius:var(--r-field);font-size:15px;background:var(--alto);color:var(--tinta);}
+.invitar-form .btn{margin-top:8px;}
+.invitados{margin-bottom:16px;}
+.invitado-fila{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--linea);}
+.invitado-txt{flex:1;font-size:14px;font-weight:600;color:var(--tinta);overflow-wrap:anywhere;}
+.invitado-txt .chico{font-weight:400;color:var(--t2);}
+.invitar-nota{border-top:1px solid var(--linea);padding-top:12px;}
+.invitar-nota p{margin:0 0 6px;color:var(--t2);}
 .cola{margin:12px 0 0;font-size:11.5px;color:var(--ocre);}
 
 .filtros{display:flex;gap:6px;padding:14px 16px 6px;overflow-x:auto;}

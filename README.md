@@ -13,6 +13,8 @@ Está en producción en **[daybyday-nz.netlify.app](https://daybyday-nz.netlify.
 
 **Gastos** — carga rápida en tres toques (monto, rubro, quién pagó). Soporta NZD, USD, AUD y ARS con tipos de cambio fijos editables, reparto en partes iguales / por monto exacto / propio, y funciona sin señal: el gasto se guarda local y se sincroniza cuando vuelve la conexión.
 
+Para sumar a alguien: **Resumen → Invitar**, con su mail y el nombre que va a aparecer en los gastos. No se manda ningún mail desde la app — le pasás el link vos, y cuando entra con ese mismo mail queda dentro del grupo sola.
+
 **Resumen** — gasto por rubro en barras, tabla de quién gastó cuánto en cada rubro, y el saldo con cada uno. Por mes, por año o histórico completo.
 
 Los datos se sincronizan en vivo entre los teléfonos del grupo vía Supabase Realtime.
@@ -51,6 +53,7 @@ El esquema vive en `supabase/migrations/`. Las migraciones **no se aplican solas
 | Tabla | Para qué |
 |---|---|
 | `miembros` | quién pertenece a qué grupo, con su alias |
+| `invitaciones` | permisos esperando: quién puede sumarse al grupo y con qué alias |
 | `grupos` | la fecha de llegada, que define todo el cronograma |
 | `plan_tareas` | las tareas del plan: fase, prioridad, estado, fecha |
 | `gastos` / `pagos` | los gastos y los saldados entre los miembros |

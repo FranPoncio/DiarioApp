@@ -48,7 +48,9 @@ importarse si faltan las variables, el minificador constant-foldea ese throw y
 elimina toda la app como código muerto: el build dice "✓ built", pero el bundle
 sale en ~198 kB en vez de ~450 kB y no contiene una línea de la app. Si vas a
 usar el build como chequeo, copiá `.env.example` a `.env` con valores
-inventados — no hace falta que sean reales, solo que no estén vacíos.
+inventados — no hace falta que sean reales, solo que no estén vacíos. El CI ya
+lo hace así (`.github/workflows/ci.yml` le pasa valores dummy al build), o sea
+que esto es un problema del build local nada más: no hay nada que arreglar ahí.
 
 ## Lo que hay que saber antes de tocar
 

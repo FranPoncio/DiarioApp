@@ -15,17 +15,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Day by Day" />
-
-    <!-- Netlify inyecta su widget (HUD) al final del HTML, después del build,
-         así que no se puede sacar desde acá. Pero el script se apaga solo si
-         encuentra su clave en "hidden" — es lo mismo que deja su botón de
-         cerrar. Lo dejamos marcado de entrada para que no aparezca nunca. -->
-    <script>
-      try {
-        for (var v of ["public", "owner-private"])
-          localStorage.setItem("nl-hud:" + v + ":v1", "hidden");
-      } catch (e) { /* modo privado o storage bloqueado: sin drama */ }
-    </script>
   </head>
   <body>
     <div id="root"></div>

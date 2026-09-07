@@ -1,7 +1,7 @@
 # Day by Day — notas para Claude
 
 App de gastos compartidos y checklist de mudanza a Nueva Zelanda, para un
-grupo chico de personas. En producción en https://daybyday-nz.netlify.app y se
+grupo chico de personas. En producción en https://daybyday.franponcioo.workers.dev y se
 instala en el celular como PWA.
 
 **Este archivo existe para no redescubrir el repo en cada sesión.** Si algo
@@ -40,7 +40,8 @@ cp .env.example .env    # VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
 npm run dev
 npm test                # vitest
 npm run lint
-npm run build           # a dist/, que es lo que publica Netlify
+npm run build           # a dist/
+npm run deploy          # build + wrangler deploy a Cloudflare, a mano
 ```
 
 **`npm run build` sin `.env` no verifica nada.** `src/lib/supabase` tira al
@@ -80,6 +81,10 @@ que esto es un problema del build local nada más: no hay nada que arreglar ahí
 
 - **Todo en castellano**: variables, componentes, comentarios, commits.
   Francisco escribe rioplatense; contestale igual.
+- **El deploy es a mano.** Hostea Cloudflare Workers y no hay deploy
+  automático: mergear no publica nada, hay que correr `npm run deploy`. Las
+  claves de Supabase se inlinean en tiempo de build, así que el `.env` local
+  tiene que tener las reales en ese momento.
 - **Sin router y sin librería de UI.** La navegación es estado en `App.jsx` y
   los estilos son CSS escrito a mano. Es deliberado.
 - **Tres dependencias de producción**: `react`, `react-dom` y

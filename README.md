@@ -3,7 +3,7 @@
 App de gastos compartidos y planning de mudanza a Nueva Zelanda, para un grupo
 chico de personas.
 
-Está en producción en **[daybyday-nz.netlify.app](https://daybyday-nz.netlify.app)** y se instala en el celular como app (Android: menú ⋮ → *Instalar app*; iPhone: compartir → *Agregar a pantalla de inicio*).
+Está en producción en **[daybyday.franponcioo.workers.dev](https://daybyday.franponcioo.workers.dev)** y se instala en el celular como app (Android: menú ⋮ → *Instalar app*; iPhone: compartir → *Agregar a pantalla de inicio*).
 
 ## Qué hace
 
@@ -23,7 +23,7 @@ Los datos se sincronizan en vivo entre los teléfonos del grupo vía Supabase Re
 
 - **Vite + React 19**, sin router ni librerías de UI — la navegación es estado local y los estilos son CSS a mano.
 - **Supabase** para datos y auth (login por magic link).
-- **Netlify** para el hosting.
+- **Cloudflare Workers** para el hosting, sirviendo `dist/` como assets estáticos.
 
 Las únicas dependencias de producción son `react`, `react-dom` y `@supabase/supabase-js`.
 
@@ -65,11 +65,20 @@ El reparto es parejo entre todos los miembros: `gastos.deuda` guarda lo que le d
 ## Deploy
 
 ```bash
-npm run build
-npx netlify-cli deploy --prod
+npm run deploy          # vite build + wrangler deploy
 ```
 
-Las variables de entorno se configuran en el dashboard de Netlify. Ojo con un detalle de Supabase Auth: el dominio de producción tiene que estar en **Authentication → URL Configuration → Redirect URLs**, si no el magic link no vuelve a la app.
+No hay deploy automático: el push no publica nada, hay que correr ese comando. `wrangler` se baja con `npx` en el momento, no está en las dependencias.
+
+Las variables de `.env` se inlinean **en tiempo de build**, así que el `.env` local tiene que tener las claves reales al momento de correr el deploy — no se configuran en Cloudflare.
+
+Los headers (CSP incluido) salen de `public/_headers`, que se copia a `dist/`. Después de un deploy conviene verificar que llegan:
+
+```bash
+curl -sI https://daybyday.franponcioo.workers.dev/ | grep -i content-security-policy
+```
+
+Ojo con un detalle de Supabase Auth: el dominio de producción tiene que estar en **Authentication → URL Configuration → Redirect URLs**, si no el magic link no vuelve a la app.
 
 ## Estructura
 

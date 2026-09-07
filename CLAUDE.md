@@ -7,6 +7,17 @@ celular como PWA.
 **Este archivo existe para no redescubrir el repo en cada sesión.** Si algo
 acá quedó viejo, corregilo en el momento: cuesta menos que volver a explorar.
 
+## Adónde va
+
+El día a día de Francisco y Eve: la previa de la mudanza acá y la vida allá
+en Nueva Zelanda, seguido de verdad todos los días. Gastos, tareas y planning
+en un solo lugar, y **conectado a Google Calendar como mínimo** — que una
+tarea del plan aparezca en el calendario sin tener que cargarla dos veces.
+
+La vara: **son dos personas usándola desde el teléfono, todos los días.** Si
+algo agrega un paso a cargar un gasto o a marcar una tarea, va en contra del
+producto por más prolijo que quede el código.
+
 ## Dónde está cada cosa
 
 ```

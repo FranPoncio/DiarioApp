@@ -42,6 +42,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--marca);outline-
 .balance.debo .balance-n{color:var(--marca-claro);}
 .saldar{margin-top:14px;background:rgba(255,253,248,.14);color:var(--alto);padding:8px 18px;border-radius:99px;font-size:13px;font-weight:600;}
 .saldar:hover{background:rgba(255,253,248,.22);}
+/* Detalle por persona: solo aparece con tres o más, cuando el neto no alcanza para saber a quien cobrarle. */
+.deudas{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:7px;}
+.deudas li{display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,253,248,.08);border-radius:var(--r-field);padding:8px 10px 8px 12px;}
+.deuda-quien{flex:1;font-size:13px;color:#B0A594;font-weight:500;}
+.deuda-n{font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;}
+.deudas li.favor .deuda-n{color:var(--verde-claro);}
+.deudas li.debo .deuda-n{color:var(--marca-claro);}
+.saldar.chico{margin-top:0;padding:6px 12px;font-size:12px;}
+.deudas-mini{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13px;}
+.deudas-mini li{display:flex;justify-content:space-between;gap:10px;color:var(--t2);}
+.deudas-mini .favor{color:var(--verde);font-weight:600;}
+.deudas-mini .debo{color:var(--marca);font-weight:600;}
 .cola{margin:12px 0 0;font-size:11.5px;color:var(--ocre);}
 
 .filtros{display:flex;gap:6px;padding:14px 16px 6px;overflow-x:auto;}

@@ -1,6 +1,7 @@
 # Day by Day
 
-App de gastos compartidos y planning de mudanza a Nueva Zelanda, para dos personas.
+App de gastos compartidos y planning de mudanza a Nueva Zelanda, para un grupo
+chico de personas.
 
 Está en producción en **[daybyday-nz.netlify.app](https://daybyday-nz.netlify.app)** y se instala en el celular como app (Android: menú ⋮ → *Instalar app*; iPhone: compartir → *Agregar a pantalla de inicio*).
 
@@ -10,11 +11,11 @@ Está en producción en **[daybyday-nz.netlify.app](https://daybyday-nz.netlify.
 
 **Plan** — el checklist de la mudanza. Se siembra solo con 34 tareas (visa, IRD, seguro médico, tenancy, cierre fiscal…) calculadas a partir de la fecha de llegada, repartidas en 8 fases del viaje. Tablero tipo Kanban con tres estados, o vista de calendario mensual. Cada tarea puede mandarse a Google Calendar con un toque.
 
-**Gastos** — carga rápida en tres toques (monto, rubro, quién pagó). Soporta NZD, USD, AUD y ARS con tipos de cambio fijos editables, división a la mitad / por monto exacto / propio, y funciona sin señal: el gasto se guarda local y se sincroniza cuando vuelve la conexión.
+**Gastos** — carga rápida en tres toques (monto, rubro, quién pagó). Soporta NZD, USD, AUD y ARS con tipos de cambio fijos editables, reparto en partes iguales / por monto exacto / propio, y funciona sin señal: el gasto se guarda local y se sincroniza cuando vuelve la conexión.
 
-**Resumen** — gasto por rubro en barras, tabla de quién gastó cuánto en cada rubro, y el saldo entre los dos. Por mes, por año o histórico completo.
+**Resumen** — gasto por rubro en barras, tabla de quién gastó cuánto en cada rubro, y el saldo con cada uno. Por mes, por año o histórico completo.
 
-Los datos se sincronizan en vivo entre los dos teléfonos vía Supabase Realtime.
+Los datos se sincronizan en vivo entre los teléfonos del grupo vía Supabase Realtime.
 
 ## Stack
 
@@ -45,14 +46,18 @@ Otros comandos: `npm run build` (compila a `dist/`), `npm run lint`.
 
 El esquema vive en `supabase/migrations/`. Las migraciones **no se aplican solas**: hay que pegarlas en el SQL Editor de Supabase y ejecutarlas en orden.
 
+`0001_esquema_base.sql` reconstruye las tablas que se habían creado a mano al principio del proyecto; en una base que ya viene andando no hace falta correrlo.
+
 | Tabla | Para qué |
 |---|---|
 | `miembros` | quién pertenece a qué grupo, con su alias |
 | `grupos` | la fecha de llegada, que define todo el cronograma |
 | `plan_tareas` | las tareas del plan: fase, prioridad, estado, fecha |
-| `gastos` / `pagos` | los gastos y los saldados entre las dos personas |
+| `gastos` / `pagos` | los gastos y los saldados entre los miembros |
 
 Todas las tablas usan Row Level Security con el mismo criterio: solo ves las filas del grupo al que pertenecés.
+
+El reparto es parejo entre todos los miembros: `gastos.deuda` guarda lo que le debe **cada uno** de los otros al que pagó, y la vista `saldos_por_par` netea eso contra los pagos para decir quién le debe a quién. Sumar miembros al grupo cambia el reparto de los gastos que se carguen desde ese momento; para recalcular los viejos hay que volver a correr el `update gastos set monto = monto` de la migración 0010.
 
 ## Deploy
 

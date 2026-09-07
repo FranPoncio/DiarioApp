@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
-import { traerGastos, traerSaldos, rubroDe } from "../../lib/gastos";
+import { traerGastos, traerSaldosPorPar, rubroDe, deudasDe, textoSaldo } from "../../lib/gastos";
 import { plata, MESES_LARGO, rangoMes } from "../../lib/formato";
 import { gastosACSV, bajarCSV } from "../../lib/csv";
 import EditarRubros from "../EditarRubros";
@@ -13,7 +13,7 @@ export default function Resumen({ contexto, onRecargarRubros }) {
   const [mes, setMes] = useState(hoy.getMonth());
   const [modo, setModo] = useState("mes"); // mes | anio | todo
   const [gastos, setGastos] = useState([]);
-  const [saldos, setSaldos] = useState([]);
+  const [pares, setPares] = useState([]);
   const [error, setError] = useState("");
 
   const refrescar = useCallback(async () => {
@@ -24,10 +24,10 @@ export default function Resumen({ contexto, onRecargarRubros }) {
         : {};
       const [g, s] = await Promise.all([
         traerGastos(grupo_id, rango),
-        traerSaldos(grupo_id),
+        traerSaldosPorPar(grupo_id),
       ]);
       setGastos(g);
-      setSaldos(s);
+      setPares(s);
       setError("");
     } catch (e) {
       setError(`No se pudieron traer los datos: ${e.message}`);
@@ -74,10 +74,8 @@ export default function Resumen({ contexto, onRecargarRubros }) {
     gastos.filter((g) => g.pagador_id === m.user_id).reduce((acc, g) => acc + Number(g.monto_base), 0)
   );
 
-  const otro = miembros.find((m) => m.user_id !== contexto.yo?.user_id);
-  const miSaldo = Number(saldos.find((s) => s.user_id === contexto.yo?.user_id)?.saldo || 0);
-  const debo = miSaldo < 0;
-  const empate = Math.abs(miSaldo) < 0.01;
+  const deudas = deudasDe(pares, contexto.yo?.user_id, miembros);
+  const resumen = textoSaldo(deudas, miembros.length > 1);
 
   const maximo = porRubro.length ? porRubro[0].total : 0;
 
@@ -160,12 +158,19 @@ export default function Resumen({ contexto, onRecargarRubros }) {
         </>
       )}
 
-      <section className={`saldo-mini ${empate ? "cero" : debo ? "debo" : "favor"}`}>
-        <p className="chico">
-          {!otro ? "Todavía no hay nadie más en el grupo"
-            : empate ? "Están a mano" : debo ? `Le debés a ${otro.alias}` : `${otro.alias} te debe`}
-        </p>
-        {otro && !empate && <p className="saldo-mini-n">${plata(miSaldo)}</p>}
+      <section className={`saldo-mini ${resumen.tono}`}>
+        <p className="chico">{resumen.texto}</p>
+        {resumen.monto != null && <p className="saldo-mini-n">${plata(resumen.monto)}</p>}
+        {deudas.length > 1 && (
+          <ul className="deudas-mini">
+            {deudas.map((d) => (
+              <li key={d.user_id}>
+                <span>{d.saldo > 0 ? `${d.alias} te debe` : `Le debés a ${d.alias}`}</span>
+                <span className={d.saldo > 0 ? "favor" : "debo"}>${plata(Math.abs(d.saldo))}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {gastos.length > 0 && (

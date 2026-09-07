@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  traerGastos, traerSaldos, cargarGasto, borrarGasto, actualizarGasto,
+  traerGastos, traerSaldosPorPar, cargarGasto, borrarGasto, actualizarGasto,
   saldarCuentas, sincronizarCola, cantidadEnCola, escucharCambios, rubroDe,
-  recurrentesFaltantes, cargarRecurrentes,
+  recurrentesFaltantes, cargarRecurrentes, deudasDe, textoSaldo,
 } from "../../lib/gastos";
 import { plata, fechaCorta, hoyISO, rangoMes, sinAcentos, colorTexto } from "../../lib/formato";
 import { useDeshacer } from "../../lib/deshacer";
@@ -14,7 +14,7 @@ export default function Gastos({ contexto, autoAbrir = false }) {
   const { grupo_id, miembros, yo, rubros } = contexto;
 
   const [gastos, setGastos] = useState([]);
-  const [saldos, setSaldos] = useState([]);
+  const [pares, setPares] = useState([]);
   const [filtro, setFiltro] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   const [abrirNuevo, setAbrirNuevo] = useState(autoAbrir);
@@ -29,11 +29,11 @@ export default function Gastos({ contexto, autoAbrir = false }) {
       const n = new Date();
       const [g, s, f] = await Promise.all([
         traerGastos(grupo_id, { limite: 300 }),
-        traerSaldos(grupo_id),
+        traerSaldosPorPar(grupo_id),
         recurrentesFaltantes(grupo_id, rangoMes(n.getFullYear(), n.getMonth())),
       ]);
       setGastos(g);
-      setSaldos(s);
+      setPares(s);
       setFijos(f);
       setError("");
     } catch {
@@ -66,8 +66,11 @@ export default function Gastos({ contexto, autoAbrir = false }) {
     return () => { cortar(); window.removeEventListener("online", alVolver); };
   }, [grupo_id, refrescar]);
 
-  const otro = miembros.find((m) => m.user_id !== yo?.user_id);
-  const miSaldo = Number(saldos.find((s) => s.user_id === yo?.user_id)?.saldo || 0);
+  const deudas = useMemo(
+    () => deudasDe(pares, yo?.user_id, miembros),
+    [pares, yo?.user_id, miembros]
+  );
+  const resumen = textoSaldo(deudas, miembros.length > 1);
 
   const visibles = useMemo(() => {
     const q = sinAcentos(busqueda.trim());
@@ -88,7 +91,7 @@ export default function Gastos({ contexto, autoAbrir = false }) {
   const alias = (id) => miembros.find((m) => m.user_id === id)?.alias || "?";
 
   const guardarGasto = async (g) => {
-    const { fila, pendiente } = await cargarGasto(g);
+    const { fila, pendiente } = await cargarGasto(g, miembros.length);
     setGastos((prev) => [fila, ...prev]);
     setEnCola(cantidadEnCola());
     if (!pendiente) refrescar();
@@ -115,39 +118,53 @@ export default function Gastos({ contexto, autoAbrir = false }) {
     catch (e) { setGastos(anterior); setError(`No se pudo guardar: ${e.message}`); }
   };
 
-  const saldar = async () => {
-    if (miSaldo === 0) return;
-    const monto = Math.abs(miSaldo);
-    const debo = miSaldo < 0;
-    if (!confirm(debo ? `¿Registrar que le pagaste ${plata(monto)} a ${otro.alias}?`
-                      : `¿Registrar que ${otro.alias} te pagó ${plata(monto)}?`)) return;
+  /* Se salda de a una persona: con más de dos, pagar "el neto" le daría de
+     más a uno y dejaría al otro sin cobrar. */
+  const saldar = async (persona) => {
+    const monto = Math.abs(persona.saldo);
+    const debo = persona.saldo < 0;
+    if (!confirm(debo ? `¿Registrar que le pagaste ${plata(monto)} a ${persona.alias}?`
+                      : `¿Registrar que ${persona.alias} te pagó ${plata(monto)}?`)) return;
     try {
       await saldarCuentas({
         grupo_id,
-        de_id: debo ? yo.user_id : otro.user_id,
-        a_id: debo ? otro.user_id : yo.user_id,
+        de_id: debo ? yo.user_id : persona.user_id,
+        a_id: debo ? persona.user_id : yo.user_id,
         monto,
       });
       refrescar();
     } catch { setError("No se pudo registrar el pago."); }
   };
 
-  const debo = miSaldo < 0;
-  const empate = Math.abs(miSaldo) < 0.01;
-
   return (
     <div className="tab-gastos">
-      <header className={`balance ${empate ? "cero" : debo ? "debo" : "favor"}`}>
-        <p className="balance-lbl">
-          {!otro ? "Todavía no hay nadie más en el grupo"
-            : empate ? "Están a mano" : debo ? `Le debés a ${otro.alias}` : `${otro.alias} te debe`}
-        </p>
-        {otro && !empate && (
+      <header className={`balance ${resumen.tono}`}>
+        <p className="balance-lbl">{resumen.texto}</p>
+        {resumen.monto != null && (
           <p className="balance-n">
-            <span className="signo">$</span>{plata(miSaldo)}
+            <span className="signo">$</span>{plata(resumen.monto)}
           </p>
         )}
-        {otro && !empate && <button className="saldar" onClick={saldar}>Saldar cuentas</button>}
+
+        {/* Con dos personas el detalle repetiría el número grande; recién
+            suma cuando hay que saber a quién cobrarle. */}
+        {deudas.length === 1 && (
+          <button className="saldar" onClick={() => saldar(deudas[0])}>Saldar cuentas</button>
+        )}
+        {deudas.length > 1 && (
+          <ul className="deudas">
+            {deudas.map((d) => (
+              <li key={d.user_id} className={d.saldo > 0 ? "favor" : "debo"}>
+                <span className="deuda-quien">
+                  {d.saldo > 0 ? `${d.alias} te debe` : `Le debés a ${d.alias}`}
+                </span>
+                <span className="deuda-n">${plata(Math.abs(d.saldo))}</span>
+                <button className="saldar chico" onClick={() => saldar(d)}>Saldar</button>
+              </li>
+            ))}
+          </ul>
+        )}
+
         {enCola > 0 && <p className="cola">{enCola} sin sincronizar</p>}
       </header>
 

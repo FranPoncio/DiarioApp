@@ -1,8 +1,8 @@
 # Day by Day — notas para Claude
 
-App de gastos compartidos y checklist de mudanza a Nueva Zelanda, para dos
-personas. En producción en https://daybyday-nz.netlify.app y se instala en el
-celular como PWA.
+App de gastos compartidos y checklist de mudanza a Nueva Zelanda, para un
+grupo chico de personas. En producción en https://daybyday-nz.netlify.app y se
+instala en el celular como PWA.
 
 **Este archivo existe para no redescubrir el repo en cada sesión.** Si algo
 acá quedó viejo, corregilo en el momento: cuesta menos que volver a explorar.
@@ -14,9 +14,9 @@ en Nueva Zelanda, seguido de verdad todos los días. Gastos, tareas y planning
 en un solo lugar, y **conectado a Google Calendar como mínimo** — que una
 tarea del plan aparezca en el calendario sin tener que cargarla dos veces.
 
-La vara: **son dos personas usándola desde el teléfono, todos los días.** Si
-algo agrega un paso a cargar un gasto o a marcar una tarea, va en contra del
-producto por más prolijo que quede el código.
+La vara: **la usan desde el teléfono, todos los días.** Si algo agrega un paso
+a cargar un gasto o a marcar una tarea, va en contra del producto por más
+prolijo que quede el código.
 
 ## Dónde está cada cosa
 
@@ -43,6 +43,13 @@ npm run lint
 npm run build           # a dist/, que es lo que publica Netlify
 ```
 
+**`npm run build` sin `.env` no verifica nada.** `src/lib/supabase` tira al
+importarse si faltan las variables, el minificador constant-foldea ese throw y
+elimina toda la app como código muerto: el build dice "✓ built", pero el bundle
+sale en ~198 kB en vez de ~450 kB y no contiene una línea de la app. Si vas a
+usar el build como chequeo, copiá `.env.example` a `.env` con valores
+inventados — no hace falta que sean reales, solo que no estén vacíos.
+
 ## Lo que hay que saber antes de tocar
 
 - **Las migraciones no se aplican solas.** Viven en `supabase/migrations/` y
@@ -53,8 +60,12 @@ npm run build           # a dist/, que es lo que publica Netlify
 - **Los gastos funcionan sin señal**: se guardan local y se sincronizan al
   volver la conexión. Cualquier cambio en el alta de gastos tiene que
   sostener ese camino.
-- **Los dos teléfonos se sincronizan en vivo** por Supabase Realtime. Un
-  cambio de esquema afecta a las dos puntas a la vez.
+- **Los teléfonos del grupo se sincronizan en vivo** por Supabase Realtime. Un
+  cambio de esquema afecta a todas las puntas a la vez.
+- **El reparto es parejo entre todos los miembros.** `gastos.deuda` es lo que
+  le debe CADA uno de los otros al que pagó, y lo calcula un trigger, no el
+  cliente (migración 0010). La app lo recalcula igual para pintar la fila sin
+  esperar a la red, pero el que vale es el del servidor.
 - El login es por magic link. No hay contraseñas.
 
 ## Convenciones
@@ -83,6 +94,6 @@ Francisco paga el consumo y las sesiones son largas.
 
 ## Datos
 
-Los gastos y el plan son de Francisco y de la otra persona del grupo. **No
-pegar datos reales en commits, issues ni capturas**: para mostrar algo, usar
-montos y nombres inventados.
+Los gastos y el plan son de Francisco y del resto del grupo. **No pegar datos
+reales en commits, issues ni capturas** — tampoco mails de invitación: para
+mostrar algo, usar montos y nombres inventados.

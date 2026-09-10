@@ -65,10 +65,16 @@ que esto es un problema del build local nada más: no hay nada que arreglar ahí
   sostener ese camino.
 - **Los teléfonos del grupo se sincronizan en vivo** por Supabase Realtime. Un
   cambio de esquema afecta a todas las puntas a la vez.
-- **El reparto es parejo entre todos los miembros.** `gastos.deuda` es lo que
-  le debe CADA uno de los otros al que pagó, y lo calcula un trigger, no el
-  cliente (migración 0010). La app lo recalcula igual para pintar la fila sin
-  esperar a la red, pero el que vale es el del servidor.
+- **El reparto es parejo entre los miembros que ya estaban.** `gastos.deuda` es
+  lo que le debe CADA uno de los otros al que pagó, y lo calcula un trigger, no
+  el cliente (migraciones 0010 y 0012). La app lo recalcula igual para pintar la
+  fila sin esperar a la red, pero el que vale es el del servidor.
+- **`miembros.desde` decide entre cuántos se divide cada gasto.** El trigger
+  cuenta los miembros con `desde <= gastos.fecha`, y la vista `movimientos`
+  reparte sólo entre ellos. Sin eso, sumar una persona le atribuía gastos
+  anteriores a su llegada y le daba al pagador más de lo que gastó — era un bug
+  real de la 0010, arreglado en la 0012. Si tocás esas vistas, no saques la
+  condición de fecha.
 - El login es por magic link. No hay contraseñas.
 - **Tener cuenta y estar en el grupo son cosas distintas.** El magic link crea
   el usuario solo, pero la RLS filtra por `miembros`. Se entra al grupo por una

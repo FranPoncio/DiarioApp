@@ -151,8 +151,10 @@ export async function traerPorRubro(grupo_id, mes) {
    `monto_base` es el gasto llevado a NZD; `deuda` es lo que le debe CADA uno
    de los otros miembros al que pagó — con reparto parejo, monto_base dividido
    por la cantidad de gente del grupo. El servidor recalcula ambos al insertar
-   (trigger de la migración 0010): esto es solo para pintar la fila antes de
-   que conteste la red. `cantidad` es cuántos son en el grupo. */
+   (trigger de las migraciones 0010 y 0012): esto es solo para pintar la fila
+   antes de que conteste la red. `cantidad` es cuántos son en el grupo hoy —
+   el servidor cuenta los que ya estaban a la fecha del gasto, así que para uno
+   con fecha atrasada este número puede diferir. Se corrige solo al refrescar. */
 export function calcularMontos(gasto, cantidad = 2) {
   const base = +(Number(gasto.monto) * (Number(gasto.tc_a_base) || 1)).toFixed(2);
   const entre = Math.max(1, Number(cantidad) || 1);

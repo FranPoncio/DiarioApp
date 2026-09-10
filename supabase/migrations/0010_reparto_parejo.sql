@@ -98,10 +98,15 @@ create trigger pagos_calcular_monto
   before insert or update on pagos
   for each row execute function calcular_monto_pago();
 
--- Recalcular los gastos ya cargados con la cantidad de miembros de hoy. Es un
--- no-op mientras el grupo siga siendo de dos; cuando entre un tercero hay que
--- volver a correr esta línea para que los gastos viejos se repartan entre
--- tres (un gasto de antes no "sabe" cuánta gente había cuando se cargó).
+-- Recalcular los gastos ya cargados con la cantidad de miembros de hoy.
+--
+-- OJO: lo que sigue quedó viejo, lo arregla la migración 0012. Este recálculo
+-- usa la cantidad de miembros de HOY para todos los gastos, y la vista de más
+-- abajo reparte cada gasto entre todos los miembros actuales — las dos cosas
+-- ignoran cuándo entró cada uno, así que sumar una tercera persona rompía el
+-- historial. En 0012 los miembros pasan a tener fecha de alta y esto se vuelve
+-- correcto e idempotente. Si estás corriendo las migraciones en orden, seguí
+-- de largo: 0012 lo deja bien.
 update gastos set monto = monto;
 
 -- --------------------------------------------------------------- vistas

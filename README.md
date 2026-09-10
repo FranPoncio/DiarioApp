@@ -52,7 +52,7 @@ El esquema vive en `supabase/migrations/`. Las migraciones **no se aplican solas
 
 | Tabla | Para qué |
 |---|---|
-| `miembros` | quién pertenece a qué grupo, con su alias |
+| `miembros` | quién pertenece a qué grupo, con su alias y desde cuándo |
 | `invitaciones` | permisos esperando: quién puede sumarse al grupo y con qué alias |
 | `grupos` | la fecha de llegada, que define todo el cronograma |
 | `plan_tareas` | las tareas del plan: fase, prioridad, estado, fecha |
@@ -60,7 +60,9 @@ El esquema vive en `supabase/migrations/`. Las migraciones **no se aplican solas
 
 Todas las tablas usan Row Level Security con el mismo criterio: solo ves las filas del grupo al que pertenecés.
 
-El reparto es parejo entre todos los miembros: `gastos.deuda` guarda lo que le debe **cada uno** de los otros al que pagó, y la vista `saldos_por_par` netea eso contra los pagos para decir quién le debe a quién. Sumar miembros al grupo cambia el reparto de los gastos que se carguen desde ese momento; para recalcular los viejos hay que volver a correr el `update gastos set monto = monto` de la migración 0010.
+El reparto es parejo entre todos los miembros: `gastos.deuda` guarda lo que le debe **cada uno** de los otros al que pagó, y la vista `saldos_por_par` netea eso contra los pagos para decir quién le debe a quién.
+
+Cada miembro tiene una fecha de alta (`miembros.desde`) y **cada gasto se reparte sólo entre los que ya estaban ese día**. Sumar gente no toca el historial: los gastos viejos siguen divididos como estaban y los nuevos se dividen entre todos. No hay que recalcular nada a mano.
 
 ## Deploy
 

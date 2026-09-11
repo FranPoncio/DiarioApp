@@ -76,6 +76,11 @@ create table if not exists gastos (
   -- monto_base y deuda los calcula el trigger, nunca el cliente: la app manda
   -- un valor optimista para pintar la fila antes de que conteste la red, pero
   -- el que vale es el del servidor (ver calcularMontos en src/lib/gastos).
+  --
+  -- En la base original eran columnas GENERADAS. No alcanzan: una generada sólo
+  -- puede mirar su propia fila, y el reparto entre N necesita contar los
+  -- miembros del grupo. La 0010 las pasa a columnas comunes llenadas por
+  -- trigger; acá ya nacen así.
   monto_base   numeric(12,2) not null default 0,
   pagador_id   uuid not null references auth.users(id),
   -- En la base original esto era un enum (`split_tipo`). Se pasó a text con un

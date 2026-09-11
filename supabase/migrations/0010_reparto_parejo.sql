@@ -19,12 +19,26 @@
 
 -- ------------------------------------------------ split: 'mitad' → 'parejo'
 
--- Las vistas se borran acá arriba, antes de tocar la columna: Postgres no deja
--- cambiarle el tipo a una columna de la que depende una vista. Se recrean al
--- final del archivo.
+-- Las vistas se borran acá arriba, antes de tocar las columnas: Postgres no
+-- deja cambiarle el tipo a una columna de la que depende una vista. Se recrean
+-- al final del archivo.
 drop view if exists saldos;
 drop view if exists saldos_por_par;
 drop view if exists movimientos;
+
+-- `deuda` y `monto_base` son columnas GENERADAS, no columnas comunes: la base
+-- las calculaba sola con una expresión por fila. Eso no sirve más, y no es un
+-- detalle — es estructural. Una columna generada sólo puede mirar su propia
+-- fila, y el reparto entre N necesita contar los miembros del grupo, que vive
+-- en otra tabla. No hay expresión que lo resuelva.
+--
+-- `drop expression` las convierte en columnas comunes conservando los valores
+-- que ya tienen. A partir de ahí las llena el trigger de más abajo.
+--
+-- De paso destraba el cambio de tipo de `split`: Postgres no deja tocarle el
+-- tipo a una columna de la que depende una generada.
+alter table gastos alter column deuda drop expression if exists;
+alter table gastos alter column monto_base drop expression if exists;
 
 -- `gastos.split` es un enum (`split_tipo`), no text. Eso lo vuelve un dolor:
 -- `alter type ... add value` no permite usar el valor nuevo en la misma

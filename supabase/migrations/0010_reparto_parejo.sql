@@ -314,8 +314,12 @@ select
   (select count(*) from gastos g
     where not exists (select 1 from miembros m
                        where m.grupo_id = g.grupo_id))            as gastos_huerfanos,
-  -- 0: gastos que quedaron sin repartir. `partes` en 1 es el fallback del
-  -- trigger para no dividir por cero, o sea que no encontró participantes.
-  (select count(*) from gastos where partes < 2)                  as sin_repartir,
+  -- 0: gastos cuyo `partes` no coincide con la gente que había a su fecha.
+  -- No se compara contra 2: un grupo de uno reparte entre uno y está bien.
+  -- Lo que no puede pasar es que el reparto diga menos de los que estaban.
+  (select count(*) from gastos g
+    where g.partes < (select count(*) from miembros m
+                       where m.grupo_id = g.grupo_id
+                         and m.desde <= g.fecha))                 as mal_repartidos,
   -- 0.00 exacto: lo que cada uno debe tiene que cancelar con lo que le deben
   (select coalesce(round(sum(saldo), 2), 0) from saldos)          as saldos_suman;

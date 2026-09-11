@@ -111,8 +111,10 @@ begin
   -- mano al principio del proyecto y no hay garantía de que tenga la unique
   -- sobre (grupo_id, user_id) que pide el on conflict. Esto anda igual con o
   -- sin ella.
-  insert into miembros (grupo_id, user_id, alias)
-  select inv.grupo_id, auth.uid(), inv.alias
+  -- `desde = current_date`: el invitado cuenta desde que entra, no desde antes.
+  -- Es lo que hace que no herede los gastos anteriores a su llegada.
+  insert into miembros (grupo_id, user_id, alias, desde)
+  select inv.grupo_id, auth.uid(), inv.alias, current_date
    where not exists (
      select 1 from miembros
       where grupo_id = inv.grupo_id
@@ -130,9 +132,8 @@ end $$;
 revoke all on function aceptar_invitacion() from public;
 grant execute on function aceptar_invitacion() to authenticated;
 
--- Sumar un miembro cambia entre cuántos se reparte, pero sólo para los gastos
--- que se carguen a partir de ahora: los viejos guardan la deuda con la que se
--- cargaron. Si querés repartir todo el historial entre los que están hoy,
--- corré a mano el update del final de la migración 0010.
+-- Sumar un miembro cambia el reparto sólo de lo que se cargue de ahí en más:
+-- cada gasto se divide entre los que ya estaban a su fecha (ver el trigger y
+-- la vista `movimientos` en la 0010). El historial no se toca.
 
 notify pgrst, 'reload schema';

@@ -2,8 +2,12 @@
 --
 -- Estas tablas se crearon a mano en el SQL Editor cuando arrancó el proyecto
 -- y nunca quedaron versionadas — por eso las migraciones empezaban en 0002.
--- Esto las reconstruye desde cero para que una base nueva quede igual a la
--- de producción, y para que el modelo de deuda esté escrito en algún lado.
+-- Esto las reconstruye para que una base nueva quede como la de producción, y
+-- para que el modelo de deuda esté escrito en algún lado.
+--
+-- Está sacado del esquema real (information_schema), no deducido del código de
+-- la app: la primera versión de este archivo lo era, se equivocó en los enums
+-- y en las columnas generadas, e hizo fallar la 0010 tres veces.
 --
 -- CUÁNDO CORRERLO
 --   · Base nueva  → corré este archivo primero y después 0002…0010 en orden.
@@ -28,14 +32,15 @@ create table if not exists grupos (
 
 -- ---------------------------------------------------------------- miembros
 
--- Quién pertenece a qué grupo. No hay alta desde la app: los miembros se
--- agregan a mano desde Supabase (ver el cartel en App.jsx).
+-- Quién pertenece a qué grupo. No hay alta desde la app salvo por invitación
+-- (ver 0011). `desde` es la fecha desde la que participa de los gastos: cada
+-- gasto se reparte sólo entre los que ya estaban a su fecha.
 create table if not exists miembros (
   grupo_id uuid not null,
   user_id  uuid not null references auth.users(id) on delete cascade,
   alias    text not null,
-  color    text,
-  creado   timestamptz not null default now(),
+  color    text default '#31866F',
+  desde    date not null default current_date,
   primary key (grupo_id, user_id)
 );
 
@@ -45,8 +50,7 @@ alter table miembros enable row level security;
 
 -- Ojo con la recursión: la policy de `miembros` no puede consultar `miembros`
 -- con un subselect como el resto de las tablas, porque se llama a sí misma.
--- Por eso acá el criterio es directo (tu propia fila) más los grupos que ya
--- resolvió `mis_grupos()`, que es security definer y no dispara RLS.
+-- `mis_grupos()` es security definer y no dispara RLS.
 create or replace function mis_grupos()
 returns setof uuid
 language sql
@@ -64,35 +68,42 @@ create policy "miembros: ver los del propio grupo"
 
 -- ------------------------------------------------------------------ gastos
 
+-- `monto_base` es una columna generada y así se queda: su expresión sólo mira
+-- su propia fila, que es justo lo que una generada puede hacer.
+--
+-- `deuda` NO puede serlo: es lo que le debe cada uno de los otros al que pagó,
+-- y eso depende de cuántos participan, que sale de contar `miembros`. Una
+-- generada no puede mirar otra tabla. La llena el trigger de la 0010.
+--
+-- En la base original `rubro` y `split` eran enums. Acá son text con check:
+-- agregarle un valor a un enum no se puede usar en la misma transacción, y eso
+-- convierte cualquier cambio en un baile de dos pasos. Con `rubro` además
+-- choca con la tabla `rubros` de la 0007, que deja crear categorías nuevas.
 create table if not exists gastos (
   id           uuid primary key default gen_random_uuid(),
   grupo_id     uuid not null,
   fecha        date not null default current_date,
   descripcion  text,
   rubro        text not null default 'otros',
-  monto        numeric(12,2) not null check (monto > 0),
+  monto        numeric not null check (monto > 0),
   moneda       text not null default 'NZD' check (moneda in ('NZD','USD','AUD','ARS')),
-  tc_a_base    numeric(14,7) not null default 1,
-  -- monto_base y deuda los calcula el trigger, nunca el cliente: la app manda
-  -- un valor optimista para pintar la fila antes de que conteste la red, pero
-  -- el que vale es el del servidor (ver calcularMontos en src/lib/gastos).
-  --
-  -- En la base original eran columnas GENERADAS. No alcanzan: una generada sólo
-  -- puede mirar su propia fila, y el reparto entre N necesita contar los
-  -- miembros del grupo. La 0010 las pasa a columnas comunes llenadas por
-  -- trigger; acá ya nacen así.
-  monto_base   numeric(12,2) not null default 0,
+  tc_a_base    numeric not null default 1,
+  monto_base   numeric generated always as (round(monto * tc_a_base, 2)) stored,
   pagador_id   uuid not null references auth.users(id),
-  -- En la base original esto era un enum (`split_tipo`). Se pasó a text con un
-  -- check en la 0010: agregarle un valor a un enum no se puede usar en la misma
-  -- transacción, y eso hacía imposible renombrar 'mitad' a 'parejo' de una.
   split        text not null default 'parejo'
                check (split in ('parejo','mitad','propio','exacto')),
-  monto_exacto numeric(12,2),
-  deuda        numeric(12,2) not null default 0,
+  monto_exacto numeric,
+  nota         text,
+  -- 'ingreso' no reparte nada: el trigger le pone deuda 0.
+  tipo         text not null default 'gasto' check (tipo in ('gasto','ingreso')),
+  -- Entre cuántos se dividió. Lo escribe el trigger con los participantes a la
+  -- fecha del gasto, así la fila queda diciendo sola cómo se repartió.
+  partes       int not null default 2,
+  deuda        numeric not null default 0,
   recurrente   boolean not null default false,
   recibo_path  text,
-  creado       timestamptz not null default now()
+  creado       timestamptz not null default now(),
+  creado_por   uuid default auth.uid()
 );
 
 create index if not exists gastos_grupo_fecha_idx on gastos (grupo_id, fecha desc);
@@ -127,13 +138,14 @@ create policy "gastos: borrar del propio grupo"
 create table if not exists pagos (
   id         uuid primary key default gen_random_uuid(),
   grupo_id   uuid not null,
+  fecha      date not null default current_date,
   de_id      uuid not null references auth.users(id),
   a_id       uuid not null references auth.users(id),
-  monto      numeric(12,2) not null check (monto > 0),
+  monto      numeric not null check (monto > 0),
   moneda     text not null default 'NZD',
-  tc_a_base  numeric(14,7) not null default 1,
-  monto_base numeric(12,2) not null default 0,
-  fecha      date not null default current_date,
+  tc_a_base  numeric not null default 1,
+  monto_base numeric generated always as (round(monto * tc_a_base, 2)) stored,
+  nota       text,
   creado     timestamptz not null default now(),
   constraint pagos_partes_distintas check (de_id <> a_id)
 );

@@ -74,8 +74,50 @@ alter table gastos alter column deuda set default 0;
 -- sumar un valor mañana es una línea.
 --
 -- El default se suelta antes de convertir: es un valor del tipo viejo.
-alter table gastos alter column split drop default;
-alter table gastos alter column split type text using split::text;
+--
+-- Y el lío que costó un intento: al cambiarle el tipo a la columna, Postgres
+-- vuelve a compilar las CHECK que la miran. Las que tengan el cast al enum
+-- escrito adentro ('propio'::split_tipo) quedan comparando text contra
+-- split_tipo y cortan con un 42883 — "operator does not exist". No alcanza con
+-- borrar la que sé cómo se llama: hay que buscarlas todas.
+--
+-- Así que se guardan, se borran, se convierte la columna y se vuelven a crear
+-- con el cast sacado. Las que sólo enumeran los valores válidos no se recrean:
+-- las reemplaza el check de abajo, que es el mismo pero acepta 'parejo'.
+do $$
+declare
+  c       record;
+  nombres text[] := '{}';
+  defs    text[] := '{}';
+  i       int;
+begin
+  for c in
+    select conname, pg_get_constraintdef(oid) as def
+      from pg_constraint
+     where conrelid = 'gastos'::regclass
+       and contype = 'c'
+       and pg_get_constraintdef(oid) ~ '\msplit\M'
+  loop
+    raise notice 'split: borro la check % (%)', c.conname, c.def;
+    if c.def !~* 'split\s*=\s*any' and c.def !~* 'split\s+in\s*\(' then
+      nombres := nombres || c.conname;
+      defs    := defs || c.def;
+    end if;
+    execute format('alter table gastos drop constraint %I', c.conname);
+  end loop;
+
+  execute 'alter table gastos alter column split drop default';
+  execute 'alter table gastos alter column split type text using split::text';
+
+  for i in 1 .. coalesce(array_length(nombres, 1), 0) loop
+    raise notice 'split: recreo la check %', nombres[i];
+    execute format(
+      'alter table gastos add constraint %I %s',
+      nombres[i],
+      regexp_replace(defs[i], '::(public\.)?split_tipo', '', 'g')
+    );
+  end loop;
+end $$;
 
 -- Se deja 'mitad' aceptado en el check: puede haber gastos esperando en la
 -- cola offline de un celular que todavía no abrió la versión nueva, y si el

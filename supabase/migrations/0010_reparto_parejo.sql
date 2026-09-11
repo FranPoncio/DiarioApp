@@ -19,6 +19,24 @@
 
 -- ------------------------------------------------ split: 'mitad' → 'parejo'
 
+-- Las vistas se borran acá arriba, antes de tocar la columna: Postgres no deja
+-- cambiarle el tipo a una columna de la que depende una vista. Se recrean al
+-- final del archivo.
+drop view if exists saldos;
+drop view if exists saldos_por_par;
+drop view if exists movimientos;
+
+-- `gastos.split` es un enum (`split_tipo`), no text. Eso lo vuelve un dolor:
+-- `alter type ... add value` no permite usar el valor nuevo en la misma
+-- transacción, así que renombrar 'mitad' a 'parejo' no entra en una sola
+-- corrida. Se pasa la columna a text con un check, que además es lo que asume
+-- el resto de estas migraciones y lo que hace que sumar un valor mañana sea
+-- una línea en vez de un baile de dos pasos.
+--
+-- El default hay que soltarlo antes de convertir: es un valor del tipo viejo.
+alter table gastos alter column split drop default;
+alter table gastos alter column split type text using split::text;
+
 -- "Mitad" era el nombre correcto cuando eran dos. Se migran las filas y se
 -- deja 'mitad' aceptado en el check: puede haber gastos esperando en la cola
 -- offline de un celular que todavía no abrió la versión nueva, y si el check
@@ -30,6 +48,14 @@ alter table gastos add constraint gastos_split_check
 update gastos set split = 'parejo' where split = 'mitad';
 
 alter table gastos alter column split set default 'parejo';
+
+-- El enum queda sin uso. Se borra sólo si nada más lo referencia: si alguna
+-- otra columna todavía lo usa, se lo deja donde está y no pasa nada.
+do $$
+begin
+  drop type if exists split_tipo;
+exception when dependent_objects_still_exist then null;
+end $$;
 
 -- --------------------------------------------------------- pagos.monto_base
 
@@ -117,7 +143,8 @@ update gastos set monto = monto;
 -- su dueño y saltearía la RLS, o sea que cualquiera vería los saldos de todos
 -- los grupos. Antes que eso, que no ande.
 
--- En orden de dependencia: saldos usa saldos_por_par, que usa movimientos.
+-- Ya se borraron arriba, antes de tocar `split`. Se repite por si este bloque
+-- se corre suelto: son `if exists`, así que no molesta.
 drop view if exists saldos;
 drop view if exists saldos_por_par;
 drop view if exists movimientos;

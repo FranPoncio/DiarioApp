@@ -78,6 +78,9 @@ create table if not exists gastos (
   -- el que vale es el del servidor (ver calcularMontos en src/lib/gastos).
   monto_base   numeric(12,2) not null default 0,
   pagador_id   uuid not null references auth.users(id),
+  -- En la base original esto era un enum (`split_tipo`). Se pasó a text con un
+  -- check en la 0010: agregarle un valor a un enum no se puede usar en la misma
+  -- transacción, y eso hacía imposible renombrar 'mitad' a 'parejo' de una.
   split        text not null default 'parejo'
                check (split in ('parejo','mitad','propio','exacto')),
   monto_exacto numeric(12,2),

@@ -284,3 +284,38 @@ exception when duplicate_object then null;
 end $$;
 
 notify pgrst, 'reload schema';
+
+-- ------------------------------------------------------------ control final
+
+-- El SQL Editor de Supabase no muestra los RAISE NOTICE: sólo te pinta el
+-- resultado de la última consulta. Así que la migración termina con un select,
+-- que es lo único que se ve, y se controla sola.
+--
+-- Todo tiene que dar lo que dice el comentario. Si algo no da, el reparto
+-- quedó mal y no hay que publicar la app todavía — con `partes` en 1 los
+-- saldos salen al doble, que es peor que no haber tocado nada.
+select
+  -- 'text'
+  (select data_type from information_schema.columns
+    where table_schema = 'public' and table_name = 'gastos'
+      and column_name = 'split')                                  as split_es,
+  -- 'NEVER' — dejó de ser generada, la llena el trigger
+  (select is_generated from information_schema.columns
+    where table_schema = 'public' and table_name = 'gastos'
+      and column_name = 'deuda')                                  as deuda_generada,
+  -- 0
+  (select count(*) from gastos where split = 'mitad')             as quedan_en_mitad,
+  -- 3
+  (select count(*) from pg_views
+    where schemaname = 'public'
+      and viewname in ('movimientos', 'saldos_por_par', 'saldos')) as vistas,
+  -- 0: gastos cuyo grupo no tiene ni un miembro. Si esto no da cero, los
+  -- `grupo_id` de las dos tablas no coinciden y nada del reparto funciona.
+  (select count(*) from gastos g
+    where not exists (select 1 from miembros m
+                       where m.grupo_id = g.grupo_id))            as gastos_huerfanos,
+  -- 0: gastos que quedaron sin repartir. `partes` en 1 es el fallback del
+  -- trigger para no dividir por cero, o sea que no encontró participantes.
+  (select count(*) from gastos where partes < 2)                  as sin_repartir,
+  -- 0.00 exacto: lo que cada uno debe tiene que cancelar con lo que le deben
+  (select coalesce(round(sum(saldo), 2), 0) from saldos)          as saldos_suman;

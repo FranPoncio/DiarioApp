@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  traerGastos, traerSaldos, rubroDe, recurrentesFaltantes, cargarRecurrentes,
+  traerGastos, traerSaldosPorPar, rubroDe, recurrentesFaltantes, cargarRecurrentes,
+  deudasDe, textoSaldo,
 } from "../../lib/gastos";
 import {
   traerGrupo, traerTareas, actualizarTarea, borrarTarea, escucharPlan, porCercania,
@@ -15,7 +16,7 @@ export default function Hoy({ contexto, onIrA, onCargarGasto }) {
   const { grupo_id, miembros, yo, rubros } = contexto;
   const [tareas, setTareas] = useState([]);
   const [gastos, setGastos] = useState([]);
-  const [saldos, setSaldos] = useState([]);
+  const [pares, setPares] = useState([]);
   const [fijos, setFijos] = useState([]);
   const [fechaLlegada, setFechaLlegada] = useState(null);
   const [listo, setListo] = useState(false);
@@ -29,12 +30,12 @@ export default function Hoy({ contexto, onIrA, onCargarGasto }) {
       const [t, gs, s, f] = await Promise.all([
         g.fecha_llegada ? traerTareas(grupo_id) : Promise.resolve([]),
         traerGastos(grupo_id, { limite: 10 }),
-        traerSaldos(grupo_id),
+        traerSaldosPorPar(grupo_id),
         recurrentesFaltantes(grupo_id, rangoMes(n.getFullYear(), n.getMonth())),
       ]);
       setTareas(t);
       setGastos(gs);
-      setSaldos(s);
+      setPares(s);
       setFijos(f);
       setFechaLlegada(g.fecha_llegada);
       setError("");
@@ -89,10 +90,11 @@ export default function Hoy({ contexto, onIrA, onCargarGasto }) {
     };
   }, [tareas]);
 
-  const otro = miembros.find((m) => m.user_id !== yo?.user_id);
-  const miSaldo = Number(saldos.find((s) => s.user_id === yo?.user_id)?.saldo || 0);
-  const debo = miSaldo < 0;
-  const empate = Math.abs(miSaldo) < 0.01;
+  const deudas = useMemo(
+    () => deudasDe(pares, yo?.user_id, miembros),
+    [pares, yo?.user_id, miembros]
+  );
+  const resumen = textoSaldo(deudas, miembros.length > 1);
 
   const ultimos = gastos.slice(0, 3);
   const alias = (id) => miembros.find((m) => m.user_id === id)?.alias || "?";
@@ -109,13 +111,10 @@ export default function Hoy({ contexto, onIrA, onCargarGasto }) {
     <div className="tab-hoy">
       {error && <p className="error banda">{error}</p>}
 
-      <button className={`saldo-hoy ${empate ? "cero" : debo ? "debo" : "favor"} ${!otro || empate ? "compacto" : ""}`}
+      <button className={`saldo-hoy ${resumen.tono} ${resumen.monto == null ? "compacto" : ""}`}
         onClick={() => onIrA("gastos")}>
-        <span className="saldo-hoy-lbl">
-          {!otro ? "Todavía no hay nadie más en el grupo"
-            : empate ? "Están a mano" : debo ? `Le debés a ${otro.alias}` : `${otro.alias} te debe`}
-        </span>
-        {otro && !empate && <span className="saldo-hoy-n">${plata(miSaldo)}</span>}
+        <span className="saldo-hoy-lbl">{resumen.texto}</span>
+        {resumen.monto != null && <span className="saldo-hoy-n">${plata(resumen.monto)}</span>}
       </button>
 
       {(diasViaje !== null || tareas.length > 0) && (

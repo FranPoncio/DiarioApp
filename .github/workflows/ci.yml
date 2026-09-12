@@ -22,7 +22,7 @@ jobs:
 
       - run: npm test
 
-      # Las claves reales viven en Netlify; acá alcanzan valores dummy
+      # Las claves reales se pasan al build del deploy; acá alcanzan valores dummy
       # para que el build compile (Vite las inlinea en tiempo de build).
       - run: npm run build
         env:

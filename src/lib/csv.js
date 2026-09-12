@@ -19,7 +19,7 @@ const COLUMNAS = [
   ["Monto en NZD", (g) => g.monto_base],
   ["Pagó", (g, alias) => alias(g.pagador_id)],
   ["División", (g) => g.split],
-  ["Le toca al otro", (g) => g.deuda],
+  ["Le toca a cada uno", (g) => g.deuda],
 ];
 
 export function gastosACSV(gastos, alias, rubros) {

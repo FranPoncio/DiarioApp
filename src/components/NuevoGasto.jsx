@@ -12,7 +12,11 @@ export default function NuevoGasto({ contexto, gasto, onGuardar, onBorrar, onCer
   const [rubro, setRubro] = useState(gasto?.rubro || rubros[0]?.id || "otros");
   const [pagador, setPagador] = useState(gasto?.pagador_id || yo.user_id);
   const [descripcion, setDescripcion] = useState(gasto?.descripcion || "");
-  const [split, setSplit] = useState(gasto?.split || "mitad");
+  // 'mitad' es el nombre viejo de 'parejo'; un gasto cargado antes del cambio
+  // todavía lo trae y hay que mostrar ese botón como elegido.
+  const [split, setSplit] = useState(
+    gasto?.split === "mitad" ? "parejo" : gasto?.split || "parejo"
+  );
   const [montoExacto, setMontoExacto] = useState(gasto?.monto_exacto != null ? String(gasto.monto_exacto) : "");
   const [moneda, setMoneda] = useState(gasto?.moneda || "NZD");
   const [tc, setTc] = useState(gasto ? String(gasto.tc_a_base ?? 1) : "1");
@@ -119,13 +123,17 @@ export default function NuevoGasto({ contexto, gasto, onGuardar, onBorrar, onCer
           <div className="extra">
             <label>Cómo se divide</label>
             <div className="quien-btns">
-              {[["mitad", "Mitad"], ["propio", "Es de quien pagó"], ["exacto", "Monto exacto"]].map(([k, l]) => (
+              {[
+                ["parejo", miembros.length > 2 ? "En partes iguales" : "Mitad"],
+                ["propio", "Es de quien pagó"],
+                ["exacto", "Monto exacto"],
+              ].map(([k, l]) => (
                 <button key={k} className={`quien-b ${split === k ? "on" : ""}`} onClick={() => setSplit(k)}>{l}</button>
               ))}
             </div>
             {split === "exacto" && (
               <>
-                <label>Le toca al otro</label>
+                <label>{miembros.length > 2 ? "Le toca a cada uno de los otros" : "Le toca al otro"}</label>
                 <input type="number" inputMode="decimal" value={montoExacto}
                   onChange={(e) => setMontoExacto(e.target.value)} placeholder="0.00" />
               </>

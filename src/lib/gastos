@@ -22,9 +22,20 @@ export async function traerContexto() {
 
   const { data: miembros, error } = await supabase
     .from("miembros")
-    .select("grupo_id, user_id, alias, color");
+    .select("grupo_id, user_id, alias, color")
+    // Orden estable: las columnas del Resumen son una por miembro, y si el
+    // orden cambia entre consultas la tabla baila.
+    .order("alias", { ascending: true });
   if (error) throw error;
-  if (!miembros?.length) return { user, grupo_id: null, miembros: [], rubros: RUBROS };
+
+  // Sin grupo puede ser que nunca lo invitaron, o que lo hayan invitado y esta
+  // sea su primera entrada. Se prueba aceptar antes de dar por perdido: la
+  // función es un no-op si no hay invitación pendiente para su mail.
+  if (!miembros?.length) {
+    const { data: grupoNuevo } = await supabase.rpc("aceptar_invitacion");
+    if (!grupoNuevo) return { user, grupo_id: null, miembros: [], rubros: RUBROS };
+    return traerContexto();
+  }
 
   const grupo_id = miembros[0].grupo_id;
   let rubros;
@@ -73,13 +84,55 @@ export async function traerGastos(grupo_id, { desde, hasta, limite } = {}) {
   }
 }
 
-export async function traerSaldos(grupo_id) {
+/* Quién le debe a quién. El neto por persona no alcanza con más de dos:
+   te dice cuánto te deben en total, no de quién cobrarlo. */
+export async function traerSaldosPorPar(grupo_id) {
   const { data, error } = await supabase
-    .from("saldos")
-    .select("user_id, saldo")
+    .from("saldos_por_par")
+    .select("acreedor_id, deudor_id, saldo")
     .eq("grupo_id", grupo_id);
   if (error) throw error;
   return data;
+}
+
+/* Las filas de saldos_por_par que te involucran, ya resueltas a alias y
+   ordenadas por monto. `saldo` positivo es que esa persona te debe; negativo,
+   que le debés. Se descartan los saldos que redondean a cero: un centavo de
+   diferencia no es una deuda que valga mostrar. */
+export function deudasDe(pares, yo_id, miembros) {
+  if (!yo_id) return [];
+  return (pares || [])
+    .filter((p) => p.acreedor_id === yo_id)
+    .map((p) => ({
+      user_id: p.deudor_id,
+      alias: miembros.find((m) => m.user_id === p.deudor_id)?.alias || "?",
+      saldo: Number(p.saldo) || 0,
+    }))
+    .filter((d) => Math.abs(d.saldo) >= 0.01)
+    .sort((a, b) => Math.abs(b.saldo) - Math.abs(a.saldo));
+}
+
+/* Resumen en una línea para Hoy y Resumen, donde no entra la lista completa.
+   Con dos personas dice lo de siempre ("Le debés a Eve"); con más muestra el
+   neto y el detalle queda en Gastos, que es donde se saldan las cuentas. */
+export function textoSaldo(deudas, hayOtros) {
+  if (!hayOtros) return { texto: "Todavía no hay nadie más en el grupo", tono: "cero", monto: null };
+  if (!deudas.length) return { texto: "Están a mano", tono: "cero", monto: null };
+
+  if (deudas.length === 1) {
+    const [d] = deudas;
+    return d.saldo > 0
+      ? { texto: `${d.alias} te debe`, tono: "favor", monto: d.saldo }
+      : { texto: `Le debés a ${d.alias}`, tono: "debo", monto: -d.saldo };
+  }
+
+  // Con varios, unos te pueden deber y vos deberle a otros: contar personas
+  // "en una dirección" mentiría. Se muestra el neto y el detalle va en Gastos.
+  const neto = deudas.reduce((acc, d) => acc + d.saldo, 0);
+  if (Math.abs(neto) < 0.01) return { texto: "Están a mano", tono: "cero", monto: null };
+  return neto > 0
+    ? { texto: "Te deben en total", tono: "favor", monto: neto }
+    : { texto: "Debés en total", tono: "debo", monto: -neto };
 }
 
 export async function traerPorRubro(grupo_id, mes) {
@@ -95,24 +148,31 @@ export async function traerPorRubro(grupo_id, mes) {
 /* -------------------------------------------------------------- escritura */
 
 /* Pura y exportada aparte de cargarGasto: es plata real, tiene tests.
-   `monto_base` es el gasto llevado a NZD; `deuda` es lo que le toca al otro.
-   El servidor recalcula ambos al insertar — esto es solo para pintar la fila
-   antes de que la red conteste (y para lo que queda en la cola offline). */
-export function calcularMontos(gasto) {
+   `monto_base` es el gasto llevado a NZD; `deuda` es lo que le debe CADA uno
+   de los otros miembros al que pagó — con reparto parejo, monto_base dividido
+   por la cantidad de gente del grupo. El servidor recalcula ambos al insertar
+   (trigger de la migración 0010): esto es solo para pintar la fila
+   antes de que conteste la red. `cantidad` es cuántos son en el grupo hoy —
+   el servidor cuenta los que ya estaban a la fecha del gasto, así que para uno
+   con fecha atrasada este número puede diferir. Se corrige solo al refrescar. */
+export function calcularMontos(gasto, cantidad = 2) {
   const base = +(Number(gasto.monto) * (Number(gasto.tc_a_base) || 1)).toFixed(2);
+  const entre = Math.max(1, Number(cantidad) || 1);
   const deuda =
-    gasto.split === "mitad" ? +(base / 2).toFixed(2)
-    : gasto.split === "propio" ? 0
-    : Number(gasto.monto_exacto || 0);
+    gasto.split === "propio" ? 0
+    : gasto.split === "exacto" ? Number(gasto.monto_exacto || 0)
+    // 'parejo', o 'mitad' si el gasto quedó en la cola offline de una versión
+    // anterior de la app.
+    : +(base / entre).toFixed(2);
   return { monto_base: base, deuda };
 }
 
-export async function cargarGasto(gasto) {
+export async function cargarGasto(gasto, cantidad) {
   const optimista = {
     ...gasto,
     id: gasto.id || `tmp-${crypto.randomUUID()}`,
     creado: new Date().toISOString(),
-    ...calcularMontos(gasto),
+    ...calcularMontos(gasto, cantidad),
     pendiente: true,
   };
 
@@ -246,6 +306,11 @@ export function escucharCambios(grupo_id, alCambiar) {
     .on("postgres_changes",
       { event: "*", schema: "public", table: "pagos", filter: `grupo_id=eq.${grupo_id}` },
       alCambiar)
+    // Entrar o salir del grupo cambia entre cuántos se reparte, o sea todos
+    // los saldos a la vez.
+    .on("postgres_changes",
+      { event: "*", schema: "public", table: "miembros", filter: `grupo_id=eq.${grupo_id}` },
+      alCambiar)
     .subscribe();
 
   return () => supabase.removeChannel(canal);
@@ -304,6 +369,42 @@ export async function editarRubro(grupo_id, clave, cambios) {
 export async function borrarRubro(grupo_id, clave) {
   const { error } = await supabase.from("rubros").delete()
     .eq("grupo_id", grupo_id).eq("clave", clave);
+  if (error) throw error;
+}
+
+/* ------------------------------------------------------- invitaciones */
+
+/* Una invitación es permiso esperando, no un mail: acá no se manda nada. El
+   invitado entra con su mail por el magic link y la app lo suma al grupo sola
+   (ver traerContexto y la función aceptar_invitacion de la migración 0011). */
+
+export const emailValido = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s).trim());
+
+export async function traerInvitaciones(grupo_id) {
+  const { data, error } = await supabase
+    .from("invitaciones")
+    .select("id, email, alias, creada, aceptada_en")
+    .eq("grupo_id", grupo_id)
+    .is("aceptada_en", null)
+    .order("creada", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function crearInvitacion(grupo_id, { email, alias }) {
+  const { data, error } = await supabase
+    .from("invitaciones")
+    // El mail se guarda en minúscula: la unique y la búsqueda al aceptar
+    // comparan así, y el que invita lo escribe a mano.
+    .insert({ grupo_id, email: email.trim().toLowerCase(), alias: alias.trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function borrarInvitacion(id) {
+  const { error } = await supabase.from("invitaciones").delete().eq("id", id);
   if (error) throw error;
 }
 

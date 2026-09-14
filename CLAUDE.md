@@ -18,6 +18,17 @@ La vara: **la usan desde el teléfono, todos los días.** Si algo agrega un paso
 a cargar un gasto o a marcar una tarea, va en contra del producto por más
 prolijo que quede el código.
 
+## Estado
+
+En producción y en uso diario. Al cierre de la última sesión, 19 tests en
+verde. Lo declarado como próximo paso es la **integración con Google
+Calendar** — hoy cada tarea se manda a mano.
+
+El resto del roadmap **no está relevado**: si vas a planificar, preguntale a
+Francisco antes de suponer.
+
+**Al terminar una sesión, actualizá estas líneas.**
+
 ## Dónde está cada cosa
 
 ```

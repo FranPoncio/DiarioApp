@@ -20,12 +20,34 @@ prolijo que quede el código.
 
 ## Estado
 
-En producción y en uso diario. Al cierre de la última sesión, 19 tests en
-verde. Lo declarado como próximo paso es la **integración con Google
-Calendar** — hoy cada tarea se manda a mano.
+En producción y en uso diario. Al cierre de la última sesión, **36 tests** en
+verde.
 
-El resto del roadmap **no está relevado**: si vas a planificar, preguntale a
-Francisco antes de suponer.
+**Google Calendar: hoy es un link, no una integración.**
+`linkGoogleCalendar()` en `src/lib/tareas.js` arma una URL con el evento
+precargado y abre Google en otra pestaña; el usuario confirma y guarda a mano.
+
+Convertirlo en integración real **no es trabajo de código, es de
+arquitectura**: OAuth necesita un client secret, y un secret no puede vivir en
+el bundle del cliente. Hoy `wrangler.jsonc` sólo sirve `dist/` como estáticos
+— no hay Worker ni Edge Function donde poner ese intercambio. Además hace
+falta proyecto en Google Cloud con la Calendar API, guardar el refresh token
+por miembro (tabla nueva con RLS), y hay una trampa: mientras la app de Google
+no esté verificada corre en modo *Testing* y **el refresh token expira cada 7
+días**, o sea reautenticar todas las semanas. Verificarla pide política de
+privacidad y revisión de Google, porque el scope de Calendar es sensible.
+
+Alternativa intermedia sin backend: un feed `.ics` de sólo lectura. No es
+edición bidireccional, pero da visibilidad y evita todo lo anterior.
+
+Otras cosas anotadas, ninguna urgente:
+
+- `SUPABASE.md` está desactualizado: cita un `0001_gastos.sql` que no existe.
+  O se alinea o se borra.
+- La cola offline sólo reintenta con el evento `online` del navegador o al
+  montar `Gastos.jsx`. Si el celular cree tener señal y el request falla igual,
+  el gasto queda en cola sin más aviso que el contador.
+- `src/lib/csv.js` exporta gastos, pero no hay export del plan de tareas.
 
 **Al terminar una sesión, actualizá estas líneas.**
 
@@ -35,8 +57,9 @@ Francisco antes de suponer.
 src/App.jsx              el estado global y el ruteo, que es un useState
 src/components/tabs/     las cuatro pantallas: Hoy, Planning, Gastos, Resumen
 src/components/          el resto de la UI (Invitar.jsx: alta de invitaciones)
-src/lib/gastos/          división, saldos y conversión de moneda
-src/lib/supabase/        cliente, auth y realtime
+src/lib/gastos           división, saldos y conversión de moneda (es un
+                         archivo sin extensión, no una carpeta)
+src/lib/supabase         cliente, auth y realtime (ídem)
 src/lib/tareas.js        siembra las 34 tareas del plan desde la fecha de llegada
 src/lib/csv.js           exportación
 src/styles.css           TODOS los estilos, a mano
@@ -78,13 +101,13 @@ que esto es un problema del build local nada más: no hay nada que arreglar ahí
   cambio de esquema afecta a todas las puntas a la vez.
 - **El reparto es parejo entre los miembros que ya estaban.** `gastos.deuda` es
   lo que le debe CADA uno de los otros al que pagó, y lo calcula un trigger, no
-  el cliente (migraciones 0010 y 0012). La app lo recalcula igual para pintar la
+  el cliente (migración `0010_reparto_parejo.sql`). La app lo recalcula igual para pintar la
   fila sin esperar a la red, pero el que vale es el del servidor.
 - **`miembros.desde` decide entre cuántos se divide cada gasto.** El trigger
   cuenta los miembros con `desde <= gastos.fecha`, y la vista `movimientos`
   reparte sólo entre ellos. Sin eso, sumar una persona le atribuía gastos
-  anteriores a su llegada y le daba al pagador más de lo que gastó — era un bug
-  real de la 0010, arreglado en la 0012. Si tocás esas vistas, no saques la
+  anteriores a su llegada y le daba al pagador más de lo que gastó. El arreglo
+  vive en la misma `0010_reparto_parejo.sql`. Si tocás esas vistas, no saques la
   condición de fecha.
 - El login es por magic link. No hay contraseñas.
 - **Tener cuenta y estar en el grupo son cosas distintas.** El magic link crea

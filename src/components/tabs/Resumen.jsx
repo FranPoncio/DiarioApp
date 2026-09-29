@@ -92,6 +92,12 @@ export default function Resumen({ contexto, onRecargarContexto }) {
 
   return (
     <div className="tab-resumen">
+      {/* Invitar estaba en el pie, entre dos links chicos, y nadie lo encontraba. */}
+      <div className="grupo-fila">
+        <span className="chico">{miembros.map((m) => m.alias).join(" · ")}</span>
+        <button className="link" onClick={() => setInvitando(true)}>+ Invitar</button>
+      </div>
+
       <div className="periodo">
         {[["mes", "Mes"], ["anio", "Año"], ["todo", "Todo"]].map(([k, l]) => (
           <button key={k} className={`periodo-b ${modo === k ? "on" : ""}`} onClick={() => setModo(k)}>{l}</button>
@@ -187,8 +193,6 @@ export default function Resumen({ contexto, onRecargarContexto }) {
         <span className="chico">Sesión de {contexto.yo?.alias}</span>
         <span>
           <button className="link" onClick={() => setEditandoRubros(true)}>Categorías</button>
-          {" · "}
-          <button className="link" onClick={() => setInvitando(true)}>Invitar</button>
           {" · "}
           <button className="link" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
         </span>

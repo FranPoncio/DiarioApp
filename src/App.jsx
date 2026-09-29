@@ -68,14 +68,24 @@ export default function App() {
   if (sesion === undefined) return <div className="cargando">Abriendo…</div>;
   if (!sesion) return <Login />;
 
+  // Quien entra con el mail equivocado ve el mismo cartel que quien nunca fue
+  // invitado, y sin el mail a la vista no hay forma de distinguirlos. Además
+  // había que ir a borrar la sesión a mano: sin un botón para salir, este
+  // cartel era un callejón sin salida.
   if (ctx && !ctx.grupo_id) {
     return (
       <div className="cargando">
-        Tu usuario todavía no está en ningún grupo.<br />
-        <span className="chico">
-          Pedile a alguien del grupo que te invite desde Resumen → Invitar, con
-          este mismo mail.
-        </span>
+        Entraste como<br />
+        <strong>{ctx.user?.email}</strong>
+        <p className="chico">
+          Ese mail todavía no está en ningún grupo. Si querías entrar con otro,
+          cerrá sesión y pedí el link de nuevo. Si es el correcto, pedile a
+          alguien del grupo que te invite desde Resumen → Invitar, con este
+          mismo mail.
+        </p>
+        <button className="btn recuperar" onClick={() => supabase.auth.signOut()}>
+          Entrar con otro mail
+        </button>
       </div>
     );
   }

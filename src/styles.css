@@ -135,6 +135,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--marca);outline-
 .btn:disabled{opacity:.4;}
 .link{color:var(--verde);font-size:13px;font-weight:600;}
 .link.mas{display:block;margin:4px auto 8px;}
+.grupo-fila{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px;}
+.cargando strong{color:var(--tinta);word-break:break-all;}
 
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
 .login-caja{width:100%;max-width:340px;text-align:center;}

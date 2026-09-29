@@ -209,12 +209,13 @@ Eso cambia cómo se dan las instrucciones, y hacerlo mal cuesta horas:
 
 ## Problemas abiertos
 
-- **El flujo de invitación no funcionó en producción.** Se cargaron dos
-  invitaciones desde la app, la UI las mostró en "Esperando que entren", y
-  `invitaciones` quedó vacía en la base. Sin resolver. El insert de
-  `crearInvitacion` usa `.select().single()`, así que un rechazo de la base
-  tendría que haber tirado error visible — hay algo más. Los miembros se
-  terminaron sumando a mano (ver arriba).
+- **El flujo de invitación todavía no se estrenó de punta a punta.** En los
+  logs de Supabase no hay ni una llamada a `/rest/v1/invitaciones`: la pantalla
+  Invitar nunca se abrió contra la base real. Lo que se usó fue un `npm run
+  dev` (localhost:5173) sobre un clon anterior al merge, que no la tenía — 34
+  de las 36 llamadas de auth de ese día venían de ahí, y `auth_logs` guarda el
+  referer, así que es lo primero que hay que mirar. Los miembros se sumaron a
+  mano (ver arriba). Falta probarlo en serio desde la URL publicada.
 - **`traerContexto` se come el error de `aceptar_invitacion`.** Hace
   `const { data } = await supabase.rpc(...)` y descarta el `error`, así que un
   fallo de esa función se ve igual que "no te invitaron": el cartel genérico de
